@@ -1,0 +1,19 @@
+--- a/src/Makefile	2013-07-20 12:47:11.000000000 -0700
++++ b/src/Makefile	2013-07-20 12:47:40.000000000 -0700
+@@ -8,7 +8,7 @@
+ PLAT= none
+ 
+ CC= gcc
+-CFLAGS= -O2 -Wall $(MYCFLAGS)
++CFLAGS= -O2 -Wall -fPIC $(MYCFLAGS)
+ AR= ar rcu
+ RANLIB= ranlib
+ RM= rm -f
+@@ -179,4 +179,7 @@
+ print.o: print.c ldebug.h lstate.h lua.h luaconf.h lobject.h llimits.h \
+   ltm.h lzio.h lmem.h lopcodes.h lundump.h
+ 
++liblua.so: $(CORE_O) $(LIB_O)
++	  $(CC) -o $@ -shared $?
++
+ # (end of Makefile)

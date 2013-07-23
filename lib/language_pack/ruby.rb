@@ -20,6 +20,8 @@ class LanguagePack::Ruby < LanguagePack::Base
   JVM_BASE_URL         = "http://heroku-jdk.s3.amazonaws.com"
   JVM_VERSION          = "openjdk7-latest"
   DEFAULT_RUBY_VERSION = "ruby-2.0.0"
+  LUA_BASE_URL         = "http://www.lua.org/ftp"
+  LUA_VERSION          = "5.1.4"
 
   # detects if this is a valid Ruby app
   # @return [Boolean] true if it's a Ruby app
@@ -40,6 +42,7 @@ class LanguagePack::Ruby < LanguagePack::Base
   def initialize(build_path, cache_path=nil)
     super(build_path, cache_path)
     @fetchers[:jvm] = LanguagePack::Fetcher.new(JVM_BASE_URL)
+    @fetchers[:lua] = LanguagePack::Fetcher.new(LUA_BASE_URL)
   end
 
   def name
@@ -83,6 +86,7 @@ class LanguagePack::Ruby < LanguagePack::Base
       remove_vendor_bundle
       install_ruby
       install_jvm
+      install_lua
       setup_language_pack_environment
       setup_profiled
       allow_git do
@@ -122,6 +126,10 @@ private
   # @return [String] resulting path
   def slug_vendor_ruby
     "vendor/#{ruby_version}"
+  end
+
+  def support_dir
+    File.expand_path("../../../support", __FILE__)
   end
 
   # the relative path to the vendored jvm
@@ -323,6 +331,28 @@ WARNING
 
   def new_app?
     !File.exist?("vendor/heroku")
+  end
+
+  def install_lua
+    instrument 'ruby.install_lua' do
+      topic "Installing Lua: #{LUA_VERSION}"
+      Dir.chdir("vendor") do
+        @fetchers[:lua].fetch_untar("lua-#{LUA_VERSION}.tar.gz")
+        Dir.chdir("lua-#{LUA_VERSION}") do
+          puts run_stdout("patch -p1 < #{support_dir}/lua_shared_lib_support.patch 2>&1")
+          raise "failed" unless $?.success?
+          run("make linux")
+          raise "failed" unless $?.success?
+          run("make -C src liblua.so")
+          raise "failed" unless $?.success?
+        end
+      end
+      topic "move out"
+      FileUtils.mv("vendor/lua-#{LUA_VERSION}/src/liblua.so", "vendor/liblua.so")
+      topic "clean up"
+      FileUtils.rm_rf("vendor/lua-#{LUA_VERSION}")
+      topic "done"
+    end
   end
 
   # vendors JVM into the slug for JRuby
